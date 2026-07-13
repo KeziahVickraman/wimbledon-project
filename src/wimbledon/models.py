@@ -39,7 +39,8 @@ def build_tendency_model(df: pd.DataFrame) -> pm.Model:
 def fit(model: pm.Model, draws: int = 1000, tune: int = 1000, seed: int = 65):
     with model:
         idata = pm.sample(
-            draws=draws, tune=tune, chains=4, target_accept=0.9, random_seed=seed
+            draws=draws, tune=tune, chains=4, target_accept=0.9, random_seed=seed,
+            progressbar=False,
         )
     return idata
 
@@ -48,11 +49,13 @@ def diagnostics_gate(idata) -> dict:
     """R-hat / ESS / divergence checks. Ship nothing that fails these."""
     import arviz as az
 
-    summ = az.summary(idata, var_names=["mu", "sigma_server"])
+    summ = az.summary(idata, var_names=["mu", "sigma_server"], round_to="none")
     div = int(idata.sample_stats["diverging"].sum())
+    max_rhat = float(summ["r_hat"].max())
+    min_ess_bulk = float(summ["ess_bulk"].min())
     return {
         "divergences": div,
-        "max_rhat": float(summ["r_hat"].max()),
-        "min_ess_bulk": float(summ["ess_bulk"].min()),
-        "pass": div == 0 and summ["r_hat"].max() < 1.01 and summ["ess_bulk"].min() > 400,
+        "max_rhat": max_rhat,
+        "min_ess_bulk": min_ess_bulk,
+        "pass": div == 0 and max_rhat < 1.01 and min_ess_bulk > 400,
     }

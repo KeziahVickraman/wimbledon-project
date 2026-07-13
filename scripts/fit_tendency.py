@@ -7,8 +7,6 @@ import datetime as dt
 import json
 from pathlib import Path
 
-import arviz as az
-
 from wimbledon.data import load_serve_direction
 from wimbledon.features import reshape_serve_direction
 from wimbledon.models import build_tendency_model, diagnostics_gate, fit
@@ -32,7 +30,7 @@ def main() -> None:
 
     ARTIFACTS.mkdir(exist_ok=True)
     out = ARTIFACTS / f"posterior_tendency_v{VERSION}_{dt.date.today():%Y%m%d}.nc"
-    az.to_netcdf(idata, out)
+    idata.to_netcdf(out)
     print(f"saved {out}")
 
 
