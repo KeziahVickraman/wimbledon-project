@@ -13,3 +13,6 @@ dist/
 .DS_Store
 data/
 artifacts/*.nc
+artifacts/*.joblib
+artifacts/calibration_report_*.json
+artifacts/calibration_reliability_*.png

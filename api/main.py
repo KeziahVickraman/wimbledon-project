@@ -10,6 +10,7 @@ from pathlib import Path
 import arviz as az
 import numpy as np
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict
 
 ARTIFACT = sorted(Path("artifacts").glob("posterior_tendency_v*.nc"))
@@ -39,6 +40,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="wimbledon-serve", lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
 
 class TendencyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -62,9 +70,19 @@ class TendencyResponse(BaseModel):
     estimates: list[DirEstimate]
 
 
+class ServersResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    servers: list[str]
+
+
 @app.get("/health")
 def health() -> dict:
     return {"model": state["version"], "artifact_hash": state["hash"], "servers": len(state["servers"])}
+
+
+@app.get("/servers", response_model=ServersResponse)
+def servers() -> ServersResponse:
+    return ServersResponse(servers=sorted(str(s) for s in state["servers"]))
 
 
 @app.post("/tendency", response_model=TendencyResponse)

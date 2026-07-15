@@ -59,6 +59,31 @@ def randomize_winner_framing(matches: pd.DataFrame, seed: int = 65) -> pd.DataFr
     return out
 
 
+def build_predictive_features(matches: pd.DataFrame, seed: int = 65) -> pd.DataFrame:
+    """Elo + framing -> model-ready feature frame for the GBM predictive baseline.
+
+    One row per match: tourney_date, surface, signed diffs (p1 minus p2) of
+    pre-match surface Elo / rank points / age / height, a left-handedness
+    indicator per player, and ``y`` (1 if p1 is the actual match winner).
+    """
+    framed = randomize_winner_framing(surface_elo(matches), seed=seed)
+    return pd.DataFrame(
+        {
+            "tourney_date": framed["tourney_date"],
+            "surface": framed["surface"],
+            "p1_name": framed["p1_name"],
+            "p2_name": framed["p2_name"],
+            "elo_diff": framed["p1_elo_pre"] - framed["p2_elo_pre"],
+            "rank_points_diff": framed["p1_rank_points"] - framed["p2_rank_points"],
+            "age_diff": framed["p1_age"] - framed["p2_age"],
+            "ht_diff": framed["p1_ht"] - framed["p2_ht"],
+            "p1_left": (framed["p1_hand"] == "L").astype("int8"),
+            "p2_left": (framed["p2_hand"] == "L").astype("int8"),
+            "y": framed["y"],
+        }
+    )
+
+
 def reshape_serve_direction(raw: pd.DataFrame, min_points: int = 30) -> pd.DataFrame:
     """Aggregate MCP ServeDirection rows to (server, side, serve number) counts.
 

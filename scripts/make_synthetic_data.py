@@ -20,10 +20,11 @@ PLAYERS = [f"Player{i:02d}" for i in range(1, N_PLAYERS + 1)]
 SKILL = dict(zip(PLAYERS, RNG.normal(1500, 150, N_PLAYERS)))
 
 
-def make_atp_matches() -> None:
+def make_atp_matches() -> list[dict]:
     years = range(2018, 2025)
     surfaces = ["Hard", "Clay", "Grass"]
     surface_p = [0.58, 0.30, 0.12]
+    all_rows = []
     for year in years:
         n_matches = RNG.integers(180, 220)
         rows = []
@@ -64,6 +65,8 @@ def make_atp_matches() -> None:
                 }
             )
         pd.DataFrame(rows).to_csv(DATA_DIR / "atp_matches" / f"{year}.csv", index=False)
+        all_rows.extend(rows)
+    return all_rows
 
 
 def make_mcp() -> None:
@@ -133,11 +136,43 @@ def make_mcp() -> None:
     )
 
 
+def make_closing_odds(matches: list[dict]) -> None:
+    """tennis-data.co.uk-style closing odds, correlated with true skill plus market noise.
+
+    AvgW/AvgL are relative to the actual winner/loser (that dataset's convention),
+    with a ~5% overround split proportionally, so de-vigging recovers a market
+    probability that is a noisy estimate of the true skill-implied probability.
+    """
+    rows = []
+    for row in matches:
+        true_p = 1.0 / (
+            1.0 + 10 ** ((SKILL[row["loser_name"]] - SKILL[row["winner_name"]]) / 400.0)
+        )
+        market_p = np.clip(true_p + RNG.normal(0, 0.07), 0.03, 0.97)
+        overround = 1.05
+        rows.append(
+            {
+                "Date": (
+                    f"{row['tourney_date'][:4]}-{row['tourney_date'][4:6]}-"
+                    f"{row['tourney_date'][6:]}"
+                ),
+                "Surface": row["surface"],
+                "Winner": row["winner_name"],
+                "Loser": row["loser_name"],
+                "AvgW": round(1.0 / (market_p * overround), 3),
+                "AvgL": round(1.0 / ((1 - market_p) * overround), 3),
+            }
+        )
+    pd.DataFrame(rows).to_csv(DATA_DIR / "odds" / "closing_odds.csv", index=False)
+
+
 def main() -> None:
     (DATA_DIR / "atp_matches").mkdir(parents=True, exist_ok=True)
     (DATA_DIR / "mcp").mkdir(parents=True, exist_ok=True)
-    make_atp_matches()
+    (DATA_DIR / "odds").mkdir(parents=True, exist_ok=True)
+    matches = make_atp_matches()
     make_mcp()
+    make_closing_odds(matches)
     print(f"synthetic data written to {DATA_DIR}")
 
 
